@@ -1,0 +1,6 @@
+# Copy this file to android/key.properties and fill in your values.
+# key.properties is git-ignored. Never commit it or the .jks file.
+storePassword=YOUR_KEYSTORE_PASSWORD
+keyPassword=YOUR_KEY_PASSWORD
+keyAlias=upload
+storeFile=C:/Users/csath/keystores/project_tracker.jks
