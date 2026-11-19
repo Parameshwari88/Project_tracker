@@ -25,7 +25,7 @@ The app stores its data in a Google Sheet ("Project Tracker DB") in the signed-i
    ```
    (cmd.exe form: `keytool -list -v -keystore %USERPROFILE%\.android\debug.keystore -alias androiddebugkey -storepass android`.) Copy the `SHA1:` line.
 2. **APIs & Services → Credentials → Create credentials → OAuth client ID** → type **Android**.
-3. Package name: `com.techtogrow.project_tracker` (the `applicationId` in `android/app/build.gradle.kts`; it must match exactly).
+3. Package name: `com.parameshwari.project_tracker` (the `applicationId` in `android/app/build.gradle.kts`; it must match exactly).
 4. Paste the SHA-1 → **Create**.
 5. For a release build you need a second Android client using the SHA-1 of your release keystore (or Play App Signing key).
 
