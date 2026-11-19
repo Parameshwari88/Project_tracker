@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:excel/excel.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -94,18 +96,43 @@ List<int>? buildReportBytes({
 /// is deleted again afterwards; nothing is kept permanently.
 Future<void> shareReport(List<int> bytes, String month) async {
   final dir = await getTemporaryDirectory();
+  // Remove reports from earlier runs. The current one must stay until the
+  // receiving app has read it, so it is cleaned up on the next report instead.
+  await cleanupOldReports();
   final file = File('${dir.path}/work-report-$month.xlsx');
   await file.writeAsBytes(bytes, flush: true);
+  await SharePlus.instance.share(ShareParams(
+    files: [
+      XFile(file.path,
+          mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          name: 'work-report-$month.xlsx')
+    ],
+    subject: 'Work report $month',
+    text: 'Work report $month',
+  ));
+}
+
+/// Saves the report to the phone through the system "Save as" dialog, where
+/// the user picks a folder such as Downloads. Returns false if cancelled.
+Future<bool> downloadReport(List<int> bytes, String month) async {
+  final saved = await FilePicker.saveFile(
+    fileName: 'work-report-$month.xlsx',
+    bytes: Uint8List.fromList(bytes),
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    dialogTitle: 'Save report',
+  );
+  return saved != null;
+}
+
+/// Deletes leftover report files from the temp directory.
+Future<void> cleanupOldReports() async {
   try {
-    await SharePlus.instance.share(ShareParams(
-      files: [
-        XFile(file.path,
-            mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-      ],
-      subject: 'Work report $month',
-    ));
-  } finally {
-    if (await file.exists()) await file.delete();
-  }
+    final dir = await getTemporaryDirectory();
+    await for (final f in dir.list()) {
+      if (f is File && f.path.contains('work-report-') && f.path.endsWith('.xlsx')) {
+        await f.delete();
+      }
+    }
+  } catch (_) {}
 }
 

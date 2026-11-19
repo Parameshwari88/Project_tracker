@@ -6,6 +6,7 @@ import '../models.dart';
 import '../providers.dart';
 import '../util.dart';
 import '../widgets/async_view.dart';
+import '../widgets/common.dart';
 
 class MembersTab extends ConsumerWidget {
   const MembersTab({super.key});
@@ -14,11 +15,12 @@ class MembersTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final value = ref.watch(membersProvider);
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        tooltip: 'Add member',
+      backgroundColor: Colors.transparent,
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Navigator.push(
             context, MaterialPageRoute(builder: (_) => const MemberFormScreen())),
-        child: const Icon(Icons.add),
+        icon: const Icon(Icons.person_add_alt_1_rounded),
+        label: const Text('New member'),
       ),
       body: AsyncBody<List<Member>>(
         value: value,
@@ -27,19 +29,32 @@ class MembersTab extends ConsumerWidget {
             ? const EmptyState('No members yet. Tap + to add one.')
             : RefreshIndicator(
                 onRefresh: () => ref.refresh(membersProvider.future),
-                child: ListView.separated(
-                  itemCount: list.length,
-                  separatorBuilder: (_, _) => const Divider(height: 1),
-                  itemBuilder: (_, i) {
-                    final m = list[i];
-                    return ListTile(
-                      leading: CircleAvatar(child: Text(m.name.isEmpty ? '?' : m.name[0].toUpperCase())),
-                      title: Text(m.name),
-                      subtitle: Text([m.role, m.phone].where((s) => s.isNotEmpty).join(' · ')),
-                      onTap: () => Navigator.push(context,
-                          MaterialPageRoute(builder: (_) => MemberFormScreen(member: m))),
-                    );
-                  },
+                child: ResponsiveBody(
+                  child: ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
+                    itemCount: list.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 10),
+                    itemBuilder: (_, i) {
+                      final m = list[i];
+                      final sub = [m.role, m.phone].where((s) => s.isNotEmpty).join(' · ');
+                      return Card(
+                        clipBehavior: Clip.antiAlias,
+                        child: ListTile(
+                          contentPadding:
+                              const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                          leading: InitialAvatar(m.name),
+                          title: Text(m.name,
+                              style: const TextStyle(fontWeight: FontWeight.w700)),
+                          subtitle: sub.isEmpty ? null : Text(sub),
+                          trailing: const Icon(Icons.chevron_right_rounded),
+                          onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => MemberFormScreen(member: m))),
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
       ),
@@ -111,26 +126,36 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
               IconButton(icon: const Icon(Icons.delete_outline), onPressed: _busy ? null : _delete),
           ],
         ),
-        body: Form(
-          key: _form,
-          child: ListView(padding: const EdgeInsets.all(16), children: [
-            TextFormField(
-              controller: _name,
-              decoration: const InputDecoration(labelText: 'Name *'),
-              validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-            ),
-            TextFormField(
-              controller: _phone,
-              decoration: const InputDecoration(labelText: 'Phone'),
-              keyboardType: TextInputType.phone,
-            ),
-            TextFormField(controller: _role, decoration: const InputDecoration(labelText: 'Role')),
-            const SizedBox(height: 24),
-            FilledButton(
-              onPressed: _busy ? null : _save,
-              child: Text(_busy ? 'Saving…' : 'Save'),
-            ),
-          ]),
+        body: ResponsiveBody(
+          maxWidth: 600,
+          child: Form(
+            key: _form,
+            child: ListView(padding: const EdgeInsets.all(16), children: [
+              TextFormField(
+                controller: _name,
+                decoration: const InputDecoration(
+                    labelText: 'Full name *', prefixIcon: Icon(Icons.person_rounded)),
+                validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+              ),
+              const SizedBox(height: 14),
+              TextFormField(
+                controller: _phone,
+                decoration: const InputDecoration(
+                    labelText: 'Phone', prefixIcon: Icon(Icons.phone_rounded)),
+                keyboardType: TextInputType.phone,
+              ),
+              const SizedBox(height: 14),
+              TextFormField(
+                  controller: _role,
+                  decoration: const InputDecoration(
+                      labelText: 'Role', prefixIcon: Icon(Icons.badge_rounded))),
+              const SizedBox(height: 24),
+              FilledButton(
+                onPressed: _busy ? null : _save,
+                child: Text(_busy ? 'Saving…' : 'Save member'),
+              ),
+            ]),
+          ),
         ),
       );
 }

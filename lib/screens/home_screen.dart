@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers.dart';
-import '../util.dart';
+import 'dashboard_screen.dart';
 import 'entries_screen.dart';
 import 'members_screen.dart';
+import 'profile_screen.dart';
 import 'projects_screen.dart';
 import 'reports_screen.dart';
 
@@ -16,47 +17,96 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
+class _Dest {
+  const _Dest(this.label, this.icon, this.selected);
+  final String label;
+  final IconData icon;
+  final IconData selected;
+}
+
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _index = 0;
-  static const _titles = ['Projects', 'Members', 'Entries', 'Reports'];
 
-  Future<void> _signOut() async {
-    try {
-      await ref.read(authProvider).signOut();
-      widget.onSignedOut();
-    } catch (e) {
-      if (mounted) showError(context, e);
-    }
-  }
+  static const _dests = [
+    _Dest('Home', Icons.dashboard_outlined, Icons.dashboard_rounded),
+    _Dest('Projects', Icons.folder_outlined, Icons.folder_rounded),
+    _Dest('Members', Icons.groups_outlined, Icons.groups_rounded),
+    _Dest('Entries', Icons.schedule_outlined, Icons.schedule_rounded),
+    _Dest('Reports', Icons.insert_chart_outlined, Icons.insert_chart_rounded),
+  ];
+
+  void _openProfile() => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => ProfileScreen(onDisconnect: widget.onSignedOut)),
+      );
 
   @override
   Widget build(BuildContext context) {
-    final email = ref.read(authProvider).account?.email;
+    final user = ref.watch(currentUserProvider);
+    final wide = MediaQuery.sizeOf(context).width >= 720;
+    final initial = (user?.name ?? '?').trim();
+
+    final body = IndexedStack(
+      index: _index,
+      children: const [
+        DashboardTab(),
+        ProjectsTab(),
+        MembersTab(),
+        EntriesTab(),
+        ReportsTab(),
+      ],
+    );
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(_titles[_index]),
+        title: Text(_index == 0 ? 'Dashboard' : _dests[_index].label),
         actions: [
-          IconButton(
-            tooltip: email == null ? 'Sign out' : 'Sign out ($email)',
-            icon: const Icon(Icons.logout),
-            onPressed: _signOut,
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: _openProfile,
+              child: CircleAvatar(
+                radius: 18,
+                child: Text(initial.isEmpty ? '?' : initial[0].toUpperCase()),
+              ),
+            ),
           ),
         ],
       ),
-      body: IndexedStack(
-        index: _index,
-        children: const [ProjectsTab(), MembersTab(), EntriesTab(), ReportsTab()],
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.folder_outlined), selectedIcon: Icon(Icons.folder), label: 'Projects'),
-          NavigationDestination(icon: Icon(Icons.group_outlined), selectedIcon: Icon(Icons.group), label: 'Members'),
-          NavigationDestination(icon: Icon(Icons.schedule_outlined), selectedIcon: Icon(Icons.schedule), label: 'Entries'),
-          NavigationDestination(icon: Icon(Icons.table_chart_outlined), selectedIcon: Icon(Icons.table_chart), label: 'Reports'),
-        ],
-      ),
+      body: wide
+          ? Row(children: [
+              NavigationRail(
+                selectedIndex: _index,
+                onDestinationSelected: (i) => setState(() => _index = i),
+                labelType: NavigationRailLabelType.all,
+                backgroundColor: Colors.transparent,
+                destinations: [
+                  for (final d in _dests)
+                    NavigationRailDestination(
+                      icon: Icon(d.icon),
+                      selectedIcon: Icon(d.selected),
+                      label: Text(d.label),
+                    ),
+                ],
+              ),
+              Expanded(child: body),
+            ])
+          : body,
+      bottomNavigationBar: wide
+          ? null
+          : NavigationBar(
+              selectedIndex: _index,
+              onDestinationSelected: (i) => setState(() => _index = i),
+              destinations: [
+                for (final d in _dests)
+                  NavigationDestination(
+                    icon: Icon(d.icon),
+                    selectedIcon: Icon(d.selected),
+                    label: d.label,
+                  ),
+              ],
+            ),
     );
   }
 }

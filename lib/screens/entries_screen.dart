@@ -7,6 +7,7 @@ import '../models.dart';
 import '../providers.dart';
 import '../util.dart';
 import '../widgets/async_view.dart';
+import '../widgets/common.dart';
 
 String monthKey(DateTime d) => DateFormat('yyyy-MM').format(d);
 
@@ -38,10 +39,11 @@ class _EntriesTabState extends ConsumerState<EntriesTab> {
     final mName = {for (final m in members) m.id: m.name};
 
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        tooltip: 'Add entry',
+      backgroundColor: Colors.transparent,
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _open(),
-        child: const Icon(Icons.add),
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('New entry'),
       ),
       body: Column(children: [
         Row(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -64,31 +66,57 @@ class _EntriesTabState extends ConsumerState<EntriesTab> {
               }
               return RefreshIndicator(
                 onRefresh: () => ref.refresh(entriesProvider(key).future),
-                child: ListView(children: [
-                  for (final day in byDay.entries) ...[
-                    Container(
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      child: Row(children: [
-                        Expanded(
-                          child: Text(DateFormat('EEE, d MMM').format(parseDate(day.key)),
-                              style: const TextStyle(fontWeight: FontWeight.bold)),
-                        ),
-                        Text('${day.value.fold<double>(0, (s, e) => s + hoursBetween(e.start, e.end)).toStringAsFixed(2)} h'),
-                      ]),
-                    ),
-                    for (final e in day.value)
-                      ListTile(
-                        title: Text('${mName[e.memberId] ?? '(deleted member)'} · ${pName[e.projectId] ?? '(deleted project)'}'),
-                        subtitle: Text(
-                            '${e.start} – ${e.end}${e.notes.isEmpty ? '' : '\n${e.notes}'}'),
-                        isThreeLine: e.notes.isNotEmpty,
-                        trailing: Text('${hoursBetween(e.start, e.end).toStringAsFixed(2)} h'),
-                        onTap: () => _open(e),
+                child: ResponsiveBody(
+                  child: ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 100), children: [
+                    for (final day in byDay.entries) ...[
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(4, 14, 4, 8),
+                        child: Row(children: [
+                          Expanded(
+                            child: Text(DateFormat('EEEE, d MMM').format(parseDate(day.key)),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleSmall
+                                    ?.copyWith(fontWeight: FontWeight.w700)),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primaryContainer,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              '${day.value.fold<double>(0, (s, e) => s + hoursBetween(e.start, e.end)).toStringAsFixed(1)} h',
+                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                            ),
+                          ),
+                        ]),
                       ),
-                  ],
-                  const SizedBox(height: 80),
-                ]),
+                      for (final e in day.value)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Card(
+                            clipBehavior: Clip.antiAlias,
+                            child: ListTile(
+                              contentPadding:
+                                  const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                              leading: InitialAvatar(mName[e.memberId] ?? '?', size: 40),
+                              title: Text(mName[e.memberId] ?? '(deleted member)',
+                                  style: const TextStyle(fontWeight: FontWeight.w700)),
+                              subtitle: Text(
+                                  '${pName[e.projectId] ?? '(deleted project)'}\n${e.start} – ${e.end}${e.notes.isEmpty ? '' : ' · ${e.notes}'}'),
+                              isThreeLine: true,
+                              trailing: Text(
+                                  '${hoursBetween(e.start, e.end).toStringAsFixed(1)} h',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w800, fontSize: 15)),
+                              onTap: () => _open(e),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ]),
+                ),
               );
             },
           ),
@@ -202,24 +230,31 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
             if (pl.isEmpty || ml.isEmpty) {
               return const EmptyState('Add at least one project and one member first.');
             }
-            return ListView(padding: const EdgeInsets.all(16), children: [
+            return ResponsiveBody(
+              maxWidth: 600,
+              child: ListView(padding: const EdgeInsets.all(16), children: [
               DropdownButtonFormField<String>(
                 initialValue: pl.any((p) => p.id == _projectId) ? _projectId : null,
-                decoration: const InputDecoration(labelText: 'Project *'),
+                isExpanded: true,
+                decoration: const InputDecoration(
+                    labelText: 'Project *', prefixIcon: Icon(Icons.folder_rounded)),
                 items: [for (final p in pl) DropdownMenuItem(value: p.id, child: Text(p.name))],
                 onChanged: (v) => setState(() => _projectId = v),
               ),
+              const SizedBox(height: 14),
               DropdownButtonFormField<String>(
                 initialValue: ml.any((m) => m.id == _memberId) ? _memberId : null,
-                decoration: const InputDecoration(labelText: 'Member *'),
+                isExpanded: true,
+                decoration: const InputDecoration(
+                    labelText: 'Member *', prefixIcon: Icon(Icons.person_rounded)),
                 items: [for (final m in ml) DropdownMenuItem(value: m.id, child: Text(m.name))],
                 onChanged: (v) => setState(() => _memberId = v),
               ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Date'),
-                subtitle: Text(DateFormat('EEE, d MMM yyyy').format(_date)),
-                trailing: const Icon(Icons.calendar_today),
+              const SizedBox(height: 14),
+              _PickTile(
+                icon: Icons.calendar_month_rounded,
+                label: 'Date',
+                value: DateFormat('EEE, d MMM yyyy').format(_date),
                 onTap: () async {
                   final d = await showDatePicker(
                     context: context,
@@ -230,31 +265,50 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
                   if (d != null) setState(() => _date = d);
                 },
               ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('In time'),
-                subtitle: Text(fmtTime(_start)),
-                trailing: const Icon(Icons.access_time),
-                onTap: () async {
-                  final t = await showTimePicker(context: context, initialTime: _start);
-                  if (t != null) setState(() => _start = t);
-                },
+              const SizedBox(height: 14),
+              Row(children: [
+                Expanded(
+                  child: _PickTile(
+                    icon: Icons.login_rounded,
+                    label: 'In time',
+                    value: _start.format(context),
+                    onTap: () async {
+                      final t = await showTimePicker(context: context, initialTime: _start);
+                      if (t != null) setState(() => _start = t);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _PickTile(
+                    icon: Icons.logout_rounded,
+                    label: 'Out time',
+                    value: _end.format(context),
+                    onTap: () async {
+                      final t = await showTimePicker(context: context, initialTime: _end);
+                      if (t != null) setState(() => _end = t);
+                    },
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 14),
+              GradientHeader(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                child: Row(children: [
+                  const Icon(Icons.timer_rounded, color: Colors.white),
+                  const SizedBox(width: 10),
+                  const Text('Total hours', style: TextStyle(color: Colors.white70)),
+                  const Spacer(),
+                  Text(hours.toStringAsFixed(2),
+                      style: const TextStyle(
+                          color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800)),
+                ]),
               ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Out time'),
-                subtitle: Text(fmtTime(_end)),
-                trailing: const Icon(Icons.access_time),
-                onTap: () async {
-                  final t = await showTimePicker(context: context, initialTime: _end);
-                  if (t != null) setState(() => _end = t);
-                },
-              ),
-              Text('Hours: ${hours.toStringAsFixed(2)}',
-                  style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 14),
               TextField(
                 controller: _notes,
-                decoration: const InputDecoration(labelText: 'Notes'),
+                decoration: const InputDecoration(
+                    labelText: 'Notes', prefixIcon: Icon(Icons.notes_rounded)),
                 maxLines: 2,
               ),
               if (_error != null)
@@ -265,12 +319,32 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
               const SizedBox(height: 24),
               FilledButton(
                 onPressed: _busy ? null : _save,
-                child: Text(_busy ? 'Saving…' : 'Save'),
+                child: Text(_busy ? 'Saving…' : 'Save entry'),
               ),
-            ]);
+            ]),
+            );
           },
         ),
       ),
     );
   }
+}
+
+class _PickTile extends StatelessWidget {
+  const _PickTile(
+      {required this.icon, required this.label, required this.value, required this.onTap});
+  final IconData icon;
+  final String label;
+  final String value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: InputDecorator(
+          decoration: InputDecoration(labelText: label, prefixIcon: Icon(icon)),
+          child: Text(value, style: const TextStyle(fontSize: 16)),
+        ),
+      );
 }

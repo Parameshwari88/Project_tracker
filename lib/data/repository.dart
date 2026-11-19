@@ -17,4 +17,7 @@ abstract class TrackerRepository {
   Future<List<WorkEntry>> entries({String? month}); // month = yyyy-MM
   Future<void> saveEntry(WorkEntry e);
   Future<void> deleteEntry(String id);
-}
+
+  /// Registered app users (shared by everyone who uses this Drive).
+  Future<List<AppUser>> users();
+  Future<void> saveUser(AppUser user);}

@@ -14,12 +14,19 @@ const _tables = <String, List<String>>{
   'members': ['id', 'name', 'phone', 'role', 'deleted'],
   'project_members': ['project_id', 'member_id', 'deleted'],
   'work_entries': ['id', 'project_id', 'member_id', 'date', 'start', 'end', 'notes', 'deleted'],
+  'users': ['id', 'name', 'phone', 'salt', 'hash', 'prefix', 'deleted'],
 };
 
+/// Tabs shared by every user. All other tabs get the user's [prefix] in front,
+/// so each registered user has their own set of tabs in the same sheet.
+const _sharedTables = {'users'};
+
 class SheetsRepository implements TrackerRepository {
-  SheetsRepository(this._auth);
+  SheetsRepository(this._auth, {this.prefix = ''});
 
   final GoogleAuthService _auth;
+  final String prefix;
+  String _name(String table) => _sharedTables.contains(table) ? table : '$prefix$table';
   final _uuid = const Uuid();
   sheets.SheetsApi? _api;
   String? _sheetId;
@@ -40,30 +47,43 @@ class SheetsRepository implements TrackerRepository {
     } else {
       final created = await api.spreadsheets.create(sheets.Spreadsheet(
         properties: sheets.SpreadsheetProperties(title: _dbName),
-        sheets: [
-          for (final t in _tables.keys)
-            sheets.Sheet(properties: sheets.SheetProperties(title: t)),
-        ],
       ));
       _sheetId = created.spreadsheetId;
-      for (final e in _tables.entries) {
-        await api.spreadsheets.values.update(
-          sheets.ValueRange(values: [e.value]),
-          _sheetId!,
-          '${e.key}!A1',
-          valueInputOption: 'RAW',
-        );
-      }
     }
+    await _ensureTables(api);
     _api = api;
     return api;
+  }
+
+  /// Adds any tab (for this user's prefix, plus the shared ones) that is missing.
+  Future<void> _ensureTables(sheets.SheetsApi api) async {
+    final meta = await api.spreadsheets.get(_sheetId!, $fields: 'sheets.properties.title');
+    final have = {for (final s in meta.sheets ?? <sheets.Sheet>[]) s.properties?.title};
+    for (final e in _tables.entries.where((e) => !have.contains(_name(e.key)))) {
+      await api.spreadsheets.batchUpdate(
+        sheets.BatchUpdateSpreadsheetRequest(requests: [
+          sheets.Request(
+            addSheet: sheets.AddSheetRequest(
+                properties: sheets.SheetProperties(title: _name(e.key))),
+          ),
+        ]),
+        _sheetId!,
+      );
+      await api.spreadsheets.values.update(
+        sheets.ValueRange(values: [e.value]),
+        _sheetId!,
+        '${_name(e.key)}!A1',
+        valueInputOption: 'RAW',
+      );
+    }
   }
 
   /// Returns non-deleted rows with their 1-based sheet row number.
   Future<List<(int, List<String>)>> _read(String table) async {
     final api = await _sheets();
     final cols = _tables[table]!.length;
-    final res = await api.spreadsheets.values.get(_sheetId!, '$table!A2:${_col(cols)}');
+    final res =
+        await api.spreadsheets.values.get(_sheetId!, '${_name(table)}!A2:${_col(cols)}');
     final out = <(int, List<String>)>[];
     final rows = res.values ?? const [];
     for (var i = 0; i < rows.length; i++) {
@@ -80,7 +100,7 @@ class SheetsRepository implements TrackerRepository {
     await api.spreadsheets.values.append(
       sheets.ValueRange(values: [row]),
       _sheetId!,
-      '$table!A1',
+      '${_name(table)}!A1',
       valueInputOption: 'RAW',
       insertDataOption: 'INSERT_ROWS',
     );
@@ -91,7 +111,7 @@ class SheetsRepository implements TrackerRepository {
     await api.spreadsheets.values.update(
       sheets.ValueRange(values: [row]),
       _sheetId!,
-      '$table!A$rowNo:${_col(row.length)}$rowNo',
+      '${_name(table)}!A$rowNo:${_col(row.length)}$rowNo',
       valueInputOption: 'RAW',
     );
   }
@@ -189,4 +209,12 @@ class SheetsRepository implements TrackerRepository {
   @override
   Future<void> deleteEntry(String id) =>
       _softDelete('work_entries', (r) => r[0] == id);
+
+  // --- users (shared by everyone) ---
+  @override
+  Future<List<AppUser>> users() async =>
+      [for (final r in await _read('users')) AppUser.fromRow(r.$2)];
+
+  @override
+  Future<void> saveUser(AppUser u) => _upsert('users', u.id, u.toRow());
 }

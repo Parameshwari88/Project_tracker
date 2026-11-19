@@ -69,6 +69,44 @@ class Member {
       Member(id: r[0], name: r[1], phone: r[2], role: r[3]);
 }
 
+/// A person who registered in the app. [prefix] names their own set of tabs
+/// in the sheet ('' for the first user, who owns the original tabs).
+class AppUser {
+  final String id;
+  final String name;
+  final String phone;
+  final String salt;
+  final String hash;
+  final String prefix;
+
+  const AppUser({
+    required this.id,
+    required this.name,
+    required this.phone,
+    required this.salt,
+    required this.hash,
+    required this.prefix,
+  });
+
+  AppUser copyWith({String? name, String? phone, String? salt, String? hash}) => AppUser(
+        id: id,
+        name: name ?? this.name,
+        phone: phone ?? this.phone,
+        salt: salt ?? this.salt,
+        hash: hash ?? this.hash,
+        prefix: prefix,
+      );
+
+  /// True when the sheet owner cleared the password cells: the next login
+  /// with this mobile number sets a new password.
+  bool get needsReset => hash.isEmpty || salt.isEmpty;
+
+  List<String> toRow() => [id, name, phone, salt, hash, prefix, ''];
+
+  factory AppUser.fromRow(List<String> r) => AppUser(
+        id: r[0], name: r[1], phone: r[2], salt: r[3], hash: r[4], prefix: r[5]);
+}
+
 class WorkEntry {
   final String id;
   final String projectId;

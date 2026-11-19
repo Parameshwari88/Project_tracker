@@ -11,6 +11,11 @@ Standalone app, unrelated to the TTG customer database. One user, no own server,
 - `lib/report/report_service.dart` – .xlsx builder and share; `lib/util.dart` – hours calc, error messages
 - `docs/google-setup.md` – Google Cloud setup (manual, cannot be automated)
 
+## Users
+- One Google account owns the Drive. People using the app register (name, mobile, password) after Google sign-in; stored in the shared `users` tab (salted, iterated SHA-256 hash, `lib/accounts.dart`).
+- Each user has their own tabs via a prefix (`SheetsRepository(prefix:)`); the first user keeps the original unprefixed tabs. `currentUserProvider` holds the logged-in user and `repoProvider` follows it.
+- This is separation inside the app, not server security: the Google token on the phone can read the whole sheet.
+
 ## Commands
 - Run: `flutter run --dart-define=GOOGLE_SERVER_CLIENT_ID=<web-client-id>`
 - Check: `flutter analyze` and `flutter test` (keep both clean)

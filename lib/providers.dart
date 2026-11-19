@@ -7,10 +7,15 @@ import 'models.dart';
 
 final authProvider = Provider<GoogleAuthService>((_) => GoogleAuthService());
 
-/// Swap this for an API-backed repository when a server exists.
-final repoProvider = Provider<TrackerRepository>(
-  (ref) => SheetsRepository(ref.watch(authProvider)),
-);
+/// The person logged in to the app (separate from the Google account that owns the Drive).
+final currentUserProvider = StateProvider<AppUser?>((_) => null);
+
+/// Each user reads and writes their own tabs. Swap this for an API-backed
+/// repository when a server exists.
+final repoProvider = Provider<TrackerRepository>((ref) {
+  final user = ref.watch(currentUserProvider);
+  return SheetsRepository(ref.watch(authProvider), prefix: user?.prefix ?? '');
+});
 
 final projectsProvider = FutureProvider<List<Project>>(
   (ref) => ref.watch(repoProvider).projects(),

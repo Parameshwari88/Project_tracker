@@ -8,7 +8,12 @@ const kScopes = <String>[
 
 /// Web OAuth client ID from Google Cloud (see docs/google-setup.md).
 /// Pass with: --dart-define=GOOGLE_SERVER_CLIENT_ID=xxxx.apps.googleusercontent.com
-const kServerClientId = String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID');
+/// Falls back to the project's Web client ID (a public identifier, not a secret).
+const kServerClientId = String.fromEnvironment(
+  'GOOGLE_SERVER_CLIENT_ID',
+  defaultValue:
+      '541069233946-ke43uj3lf5o4u0jqjakob3s7pip2em4t.apps.googleusercontent.com',
+);
 
 class _AuthClient extends http.BaseClient {
   _AuthClient(this._token);

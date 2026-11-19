@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:project_tracker/accounts.dart';
 import 'package:project_tracker/models.dart';
 import 'package:project_tracker/report/report_service.dart';
 import 'package:project_tracker/util.dart';
@@ -30,6 +31,37 @@ void main() {
           buildReportBytes(month: '2026-11', projects: [p], members: [m], entries: [e]);
       expect(bytes, isNotNull);
       expect(bytes!.isNotEmpty, isTrue);
+    });
+  });
+
+  group('accounts', () {
+    test('first user keeps the original tabs, others get their own prefix', () {
+      final a = createUser(name: 'A', phone: '9876543210', password: 'secret1', isFirst: true);
+      final b = createUser(name: 'B', phone: '9123456780', password: 'secret2', isFirst: false);
+      expect(a.prefix, '');
+      expect(b.prefix, startsWith('u'));
+      expect(b.prefix, endsWith('_'));
+    });
+    test('login needs the right mobile number and password', () {
+      final u = createUser(name: 'A', phone: '+91 98765-43210', password: 'secret1', isFirst: true);
+      expect(findLogin([u], '9876543210', 'secret1'), isNotNull);
+      expect(findLogin([u], '9876543210', 'wrong'), isNull);
+      expect(findLogin([u], '9999999999', 'secret1'), isNull);
+    });
+    test('cleared password cells mean a reset is pending', () {
+      final u = createUser(name: 'A', phone: '9876543210', password: 'secret1', isFirst: true);
+      expect(u.needsReset, isFalse);
+      final cleared = AppUser.fromRow([u.id, u.name, u.phone, '', '', u.prefix, '']);
+      expect(cleared.needsReset, isTrue);
+      expect(findLogin([cleared], '9876543210', ''), isNull);
+      expect(passwordMatches(withNewPassword(cleared, 'newpass1'), 'newpass1'), isTrue);
+    });
+    test('password is not stored in plain text and can be changed', () {
+      final u = createUser(name: 'A', phone: '9876543210', password: 'secret1', isFirst: true);
+      expect(u.hash.contains('secret1'), isFalse);
+      final u2 = withNewPassword(u, 'newpass1');
+      expect(passwordMatches(u2, 'newpass1'), isTrue);
+      expect(passwordMatches(u2, 'secret1'), isFalse);
     });
   });
 

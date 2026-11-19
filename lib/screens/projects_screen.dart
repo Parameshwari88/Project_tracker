@@ -6,6 +6,7 @@ import '../models.dart';
 import '../providers.dart';
 import '../util.dart';
 import '../widgets/async_view.dart';
+import '../widgets/common.dart';
 
 class ProjectsTab extends ConsumerWidget {
   const ProjectsTab({super.key});
@@ -14,11 +15,12 @@ class ProjectsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final value = ref.watch(projectsProvider);
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        tooltip: 'Add project',
+      backgroundColor: Colors.transparent,
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Navigator.push(
             context, MaterialPageRoute(builder: (_) => const ProjectFormScreen())),
-        child: const Icon(Icons.add),
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('New project'),
       ),
       body: AsyncBody<List<Project>>(
         value: value,
@@ -27,19 +29,31 @@ class ProjectsTab extends ConsumerWidget {
             ? const EmptyState('No projects yet. Tap + to add one.')
             : RefreshIndicator(
                 onRefresh: () => ref.refresh(projectsProvider.future),
-                child: ListView.separated(
-                  itemCount: list.length,
-                  separatorBuilder: (_, _) => const Divider(height: 1),
-                  itemBuilder: (_, i) {
-                    final p = list[i];
-                    return ListTile(
-                      title: Text(p.name),
-                      subtitle: Text([if (p.client.isNotEmpty) p.client, p.status].join(' · ')),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => Navigator.push(context,
-                          MaterialPageRoute(builder: (_) => ProjectDetailScreen(project: p))),
-                    );
-                  },
+                child: ResponsiveBody(
+                  child: ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
+                    itemCount: list.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 10),
+                    itemBuilder: (_, i) {
+                      final p = list[i];
+                      return Card(
+                        clipBehavior: Clip.antiAlias,
+                        child: ListTile(
+                          contentPadding:
+                              const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                          leading: InitialAvatar(p.name),
+                          title: Text(p.name,
+                              style: const TextStyle(fontWeight: FontWeight.w700)),
+                          subtitle: Text(p.client.isEmpty ? 'No client' : p.client),
+                          trailing: StatusChip(p.status),
+                          onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => ProjectDetailScreen(project: p))),
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
       ),
@@ -131,19 +145,27 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
               IconButton(icon: const Icon(Icons.delete_outline), onPressed: _busy ? null : _delete),
           ],
         ),
-        body: Form(
+        body: ResponsiveBody(
+         maxWidth: 600,
+         child: Form(
           key: _form,
           child: ListView(padding: const EdgeInsets.all(16), children: [
             TextFormField(
               controller: _name,
-              decoration: const InputDecoration(labelText: 'Name *'),
+              decoration: const InputDecoration(
+                  labelText: 'Project name *', prefixIcon: Icon(Icons.folder_rounded)),
               validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
             ),
-            TextFormField(controller: _client, decoration: const InputDecoration(labelText: 'Client')),
-            const SizedBox(height: 8),
+            const SizedBox(height: 14),
+            TextFormField(
+                controller: _client,
+                decoration: const InputDecoration(
+                    labelText: 'Client', prefixIcon: Icon(Icons.business_rounded))),
+            const SizedBox(height: 14),
             DropdownButtonFormField<String>(
               initialValue: _status,
-              decoration: const InputDecoration(labelText: 'Status'),
+              decoration: const InputDecoration(
+                  labelText: 'Status', prefixIcon: Icon(Icons.flag_rounded)),
               items: const [
                 DropdownMenuItem(value: 'active', child: Text('Active')),
                 DropdownMenuItem(value: 'hold', child: Text('On hold')),
@@ -171,15 +193,17 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
             ),
             TextFormField(
               controller: _notes,
-              decoration: const InputDecoration(labelText: 'Notes'),
+              decoration: const InputDecoration(
+                  labelText: 'Notes', prefixIcon: Icon(Icons.notes_rounded)),
               maxLines: 3,
             ),
             const SizedBox(height: 24),
             FilledButton(
               onPressed: _busy ? null : _save,
-              child: Text(_busy ? 'Saving…' : 'Save'),
+              child: Text(_busy ? 'Saving…' : 'Save project'),
             ),
           ]),
+         ),
         ),
       );
 }
